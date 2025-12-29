@@ -1,0 +1,22 @@
+insert into public.words (word) values 
+('accommodate'),
+('accumulate'),
+('calendar'),
+('cemetery'),
+('conscience'),
+('definite'),
+('embarrass'),
+('fluorescent'),
+('guarantee'),
+('harass'),
+('independent'),
+('intelligence'),
+('judgment'),
+('kernel'),
+('leisure'),
+('license'),
+('maintenance'),
+('maneuver'),
+('millennium'),
+('mischievous')
+on conflict (word) do nothing;
