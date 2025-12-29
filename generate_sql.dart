@@ -3,7 +3,7 @@ import 'dart:io';
 void main() {
   final file = File('wordlist.csv');
   if (!file.existsSync()) {
-    print('Error: wordlist.csv not found.');
+    stdout.writeln('Error: wordlist.csv not found.');
     return;
   }
   
@@ -59,5 +59,5 @@ void main() {
   buffer.writeln('\nCOMMIT;');
   
   File('update_words.sql').writeAsStringSync(buffer.toString());
-  print('Refined update_words.sql generated successfully (${seenWords.length} unique words).');
+  stdout.writeln('Refined update_words.sql generated successfully (${seenWords.length} unique words).');
 }

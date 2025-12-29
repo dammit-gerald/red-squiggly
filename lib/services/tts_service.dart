@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 class TtsService {
@@ -31,7 +32,7 @@ class TtsService {
         return locale.contains('en');
       }).toList();
     } catch (e) {
-      print("Error getting voices: $e");
+      debugPrint("Error getting voices: $e");
       return [];
     }
   }
@@ -42,7 +43,7 @@ class TtsService {
       final Map<String, String> voiceMap = voice.map((key, value) => MapEntry(key, value.toString()));
       await _flutterTts.setVoice(voiceMap);
     } catch (e) {
-      print("Error setting voice: $e");
+      debugPrint("Error setting voice: $e");
     }
   }
 }

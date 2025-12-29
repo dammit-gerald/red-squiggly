@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/word.dart';
 import '../../services/providers.dart';
@@ -72,7 +73,7 @@ class QuizNotifier extends Notifier<QuizState> {
           _startWord();
       }
     } catch (e) {
-      print("Error loading quiz: $e");
+      debugPrint("Error loading quiz: $e");
     }
   }
 
@@ -158,7 +159,7 @@ class QuizNotifier extends Notifier<QuizState> {
           hint = await gemini.getSentence(word.word);
         }
     } catch (e) {
-        print("Gemini Error: $e");
+        debugPrint("Gemini Error: $e");
         hint = "Couldn't get hint. Check console.";
     }
 

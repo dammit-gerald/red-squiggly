@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 class SttService {
@@ -7,11 +8,11 @@ class SttService {
   Future<bool> init() async {
     try {
       _isAvailable = await _speechToText.initialize(
-        onError: (val) => print('STT Error: $val'),
-        onStatus: (val) => print('STT Status: $val'),
+        onError: (val) => debugPrint('STT Error: $val'),
+        onStatus: (val) => debugPrint('STT Status: $val'),
       );
     } catch (e) {
-      print("STT Init Error: $e");
+      debugPrint("STT Init Error: $e");
       _isAvailable = false;
     }
     return _isAvailable;
@@ -19,7 +20,7 @@ class SttService {
 
   Future<void> listen({required Function(String) onResult}) async {
     if (!_isAvailable) {
-        print("STT not available");
+        debugPrint("STT not available");
         return;
     }
     
@@ -28,10 +29,12 @@ class SttService {
         onResult(result.recognizedWords);
       },
       localeId: "en_US",
-      cancelOnError: true,
-      partialResults: true,
-      pauseFor: const Duration(seconds: 5),
-      listenFor: const Duration(seconds: 60),
+      listenOptions: SpeechListenOptions(
+        cancelOnError: true,
+        partialResults: true,
+      ),
+      pauseFor: const Duration(minutes: 2),
+      listenFor: const Duration(minutes: 2),
     );
   }
 

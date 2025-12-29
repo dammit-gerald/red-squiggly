@@ -33,7 +33,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _isLoadingLevels = false;
       });
     } catch (e) {
-      print('Error fetching levels: $e');
+      debugPrint('Error fetching levels: $e');
       setState(() => _isLoadingLevels = false);
     }
   }

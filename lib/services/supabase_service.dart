@@ -5,20 +5,33 @@ class SupabaseService {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<List<String>> getLevels() async {
-    // Default Supabase limit is often 1000, which might only cover the first level.
-    // Fetching more rows to ensure we find all unique levels. 
-    // Ideally, we'd use a database function for 'SELECT DISTINCT level', but this works for <10k words.
-    final response = await _client
-        .from('words')
-        .select('level')
-        .limit(10000) 
-        .order('level', ascending: true);
+    final Set<String> levels = {};
+    int offset = 0;
+    const int limit = 1000;
+    bool moreRows = true;
+
+    while (moreRows) {
+      final response = await _client
+          .from('words')
+          .select('level')
+          .range(offset, offset + limit - 1); // range is inclusive
+      
+      final List<dynamic> rows = response as List;
+      if (rows.isEmpty) {
+        moreRows = false;
+      } else {
+        levels.addAll(rows.map((r) => r['level'] as String));
+        if (rows.length < limit) {
+          moreRows = false;
+        } else {
+          offset += limit;
+        }
+      }
+    }
     
-    // Extract unique levels locally since .distinct() isn't directly exposed in simple select
-    final List<dynamic> rows = response as List;
-    final levels = rows.map((r) => r['level'] as String).toSet().toList();
-    levels.sort();
-    return levels;
+    final sortedLevels = levels.toList();
+    sortedLevels.sort();
+    return sortedLevels;
   }
 
   Future<List<Word>> getQuizWords(int count, List<String> levels) async {

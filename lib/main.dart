@@ -15,7 +15,7 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {
-    print("Error loading .env: $e");
+    debugPrint("Error loading .env: $e");
   }
   
   final supabaseUrl = dotenv.env['SUPABASE_URL'];
@@ -24,7 +24,7 @@ Future<void> main() async {
   if (supabaseUrl != null && supabaseKey != null && supabaseUrl.isNotEmpty && supabaseKey.isNotEmpty) {
       await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
   } else {
-    print("Supabase config missing or empty. App will run in limited mode.");
+    debugPrint("Supabase config missing or empty. App will run in limited mode.");
   }
 
   runApp(const ProviderScope(child: RedSquigglyApp()));
