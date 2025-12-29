@@ -6,6 +6,7 @@ create extension if not exists "uuid-ossp";
 create table public.words (
   id uuid primary key default uuid_generate_v4(),
   word text not null unique,
+  level text not null,
   created_at timestamp with time zone default now()
 );
 

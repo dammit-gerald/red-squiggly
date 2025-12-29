@@ -6,7 +6,13 @@ import 'quiz_provider.dart';
 
 class QuizScreen extends ConsumerStatefulWidget {
   final int quizLength;
-  const QuizScreen({super.key, required this.quizLength});
+  final List<String> levels;
+  
+  const QuizScreen({
+    super.key, 
+    required this.quizLength,
+    required this.levels,
+  });
 
   @override
   ConsumerState<QuizScreen> createState() => _QuizScreenState();
@@ -20,7 +26,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
     super.initState();
     // Load quiz on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(quizProvider.notifier).loadQuiz(widget.quizLength);
+      ref.read(quizProvider.notifier).loadQuiz(widget.quizLength, widget.levels);
     });
   }
 

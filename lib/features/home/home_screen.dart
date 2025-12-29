@@ -14,6 +14,29 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _quizLength = 10;
   final _supabase = Supabase.instance.client;
+  List<String> _availableLevels = [];
+  final Set<String> _selectedLevels = {};
+  bool _isLoadingLevels = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLevels();
+  }
+
+  Future<void> _fetchLevels() async {
+    try {
+      final levels = await ref.read(supabaseServiceProvider).getLevels();
+      setState(() {
+        _availableLevels = levels;
+        _selectedLevels.addAll(levels); // Select all by default
+        _isLoadingLevels = false;
+      });
+    } catch (e) {
+      print('Error fetching levels: $e');
+      setState(() => _isLoadingLevels = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,9 +88,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onChanged: (val) => setState(() => _quizLength = val.toInt()),
               ),
                Text('$_quizLength Words', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.redAccent)),
-              const SizedBox(height: 60),
+              
+              const SizedBox(height: 30),
+              const Text('Select Levels:', style: TextStyle(fontSize: 18)),
+              const SizedBox(height: 10),
+              if (_isLoadingLevels)
+                const CircularProgressIndicator()
+              else if (_availableLevels.isEmpty)
+                const Text("No levels found.")
+              else
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.center,
+                  children: _availableLevels.map((level) {
+                    final isSelected = _selectedLevels.contains(level);
+                    return FilterChip(
+                      label: Text(level),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedLevels.add(level);
+                          } else {
+                            _selectedLevels.remove(level);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+
+              const SizedBox(height: 40),
               FilledButton.icon(
-                onPressed: () => context.push('/quiz', extra: _quizLength),
+                onPressed: _selectedLevels.isEmpty ? null : () {
+                  context.push('/quiz', extra: {
+                    'count': _quizLength,
+                    'levels': _selectedLevels.toList(),
+                  });
+                },
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('Start Quiz', style: TextStyle(fontSize: 20)),
                 style: FilledButton.styleFrom(

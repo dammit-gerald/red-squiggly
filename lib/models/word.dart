@@ -1,12 +1,14 @@
 class Word {
   final String id;
   final String word;
+  final String level;
   final int correctCount;
   final int incorrectCount;
 
   Word({
     required this.id,
     required this.word,
+    required this.level,
     this.correctCount = 0,
     this.incorrectCount = 0,
   });
@@ -33,6 +35,7 @@ class Word {
     return Word(
       id: map['id'] as String,
       word: map['word'] as String,
+      level: map['level'] as String? ?? 'Unknown',
       correctCount: correct,
       incorrectCount: incorrect,
     );

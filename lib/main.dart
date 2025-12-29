@@ -48,8 +48,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/quiz',
       builder: (context, state) {
-        final count = state.extra as int? ?? 10;
-        return QuizScreen(quizLength: count);
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        final count = extra['count'] as int? ?? 10;
+        final levels = extra['levels'] as List<String>? ?? [];
+        return QuizScreen(quizLength: count, levels: levels);
       },
     ),
   ],

@@ -54,10 +54,10 @@ class QuizNotifier extends Notifier<QuizState> {
     return QuizState();
   }
 
-  Future<void> loadQuiz(int count) async {
+  Future<void> loadQuiz(int count, List<String> levels) async {
     state = state.copyWith(status: QuizStatus.loading);
     try {
-      final words = await ref.read(supabaseServiceProvider).getQuizWords(count);
+      final words = await ref.read(supabaseServiceProvider).getQuizWords(count, levels);
       state = state.copyWith(
         status: QuizStatus.ready, 
         words: words,

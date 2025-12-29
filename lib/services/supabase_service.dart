@@ -4,45 +4,44 @@ import '../models/word.dart';
 class SupabaseService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  Future<List<Word>> getQuizWords(int count) async {
-    final userId = _client.auth.currentUser?.id;
-    
-    if (userId == null) {
-      // Unauthenticated: Fetch random words
-      // Note: 'random' in SQL needs a function or client-side shuffle. 
-      // We'll fetch a larger batch and shuffle client-side for simplicity.
-      final response = await _client
-          .from('words')
-          .select()
-          .limit(100); // Fetch up to 100 to shuffle from
-      
-      final List<Word> words = (response as List)
-          .map((e) => Word.fromMap(e))
-          .toList();
-      
-      words.shuffle();
-      return words.take(count).toList();
-    }
-
-    // Authenticated: Prioritize non-mastered words
-    // Fetch words with the user's progress
+  Future<List<String>> getLevels() async {
+    // Default Supabase limit is often 1000, which might only cover the first level.
+    // Fetching more rows to ensure we find all unique levels. 
+    // Ideally, we'd use a database function for 'SELECT DISTINCT level', but this works for <10k words.
     final response = await _client
         .from('words')
-        .select('*, user_progress!left(*)')
-        .eq('user_progress.user_id', userId); // This filter might need adjustment for LEFT JOIN behavior in Supabase
-
-    // Actually, Supabase filtering on a left joined table can be tricky (it becomes inner join if you filter).
-    // Better to fetch words, and the join will be null if no progress. 
-    // We want ALL words, so we shouldn't .eq on the join unless we want only practiced words.
-    // Correct approach: fetch all words, join progress where user_id matches. 
-    // Supabase JS/Dart SDK syntax for "User Progress for THIS user" in a join:
-    // .select('*, user_progress(*)') and we'll have to filter the list client side or use a view/RPC for strict RLS.
-    // But since RLS is set to "Users can see own progress", querying user_progress will only return THIS user's rows anyway!
+        .select('level')
+        .limit(10000) 
+        .order('level', ascending: true);
     
-    final responseWithRLS = await _client.from('words').select('*, user_progress(*)');
+    // Extract unique levels locally since .distinct() isn't directly exposed in simple select
+    final List<dynamic> rows = response as List;
+    final levels = rows.map((r) => r['level'] as String).toSet().toList();
+    levels.sort();
+    return levels;
+  }
+
+  Future<List<Word>> getQuizWords(int count, List<String> levels) async {
+    final userId = _client.auth.currentUser?.id;
+    
+    // Base query
+    var query = _client.from('words').select('*, user_progress(*)');
+    
+    if (levels.isNotEmpty) {
+      query = query.filter('level', 'in', '(${levels.map((e) => "\"$e\"").join(',')})');
+    }
+    
+    final responseWithRLS = await query;
 
     List<Word> allWords = (responseWithRLS as List).map((e) => Word.fromMap(e)).toList();
 
+    if (userId == null) {
+        // Unauthenticated: Just shuffle and return
+        allWords.shuffle();
+        return allWords.take(count).toList();
+    }
+
+    // Authenticated: Prioritize non-mastered words
     // Custom Sort Logic:
     // 1. Never seen (correct=0, incorrect=0) -> High priority
     // 2. High error rate (incorrect > correct) -> High priority
