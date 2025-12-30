@@ -88,24 +88,16 @@ class QuizNotifier extends Notifier<QuizState> {
      await ref.read(ttsServiceProvider).speak(word.word);
   }
 
-  Future<void> startListening() async {
-    state = state.copyWith(phase: QuizPhase.listening, userSpelling: '');
-    final stt = ref.read(sttServiceProvider);
-    
-    await stt.init();
-    
-    if (stt.isListening) {
-        await stt.stop();
+  void setListening(bool isListening) {
+    if (isListening) {
+      state = state.copyWith(phase: QuizPhase.listening);
+    } else {
+      // Only go back to waiting if we were listening. 
+      // If we are in feedback, don't change.
+      if (state.phase == QuizPhase.listening) {
+         state = state.copyWith(phase: QuizPhase.waiting);
+      }
     }
-    
-    await stt.listen(onResult: (text) {
-        state = state.copyWith(userSpelling: text);
-    });
-  }
-  
-  Future<void> stopListening() async {
-      await ref.read(sttServiceProvider).stop();
-      state = state.copyWith(phase: QuizPhase.waiting);
   }
 
   void updateSpelling(String value) {

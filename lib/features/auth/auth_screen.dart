@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart' as google;
 
 class AuthScreen extends StatefulWidget {
@@ -58,8 +59,10 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       // Web Client ID is often needed for the backend to verify the token.
       // Ideally stored in .env or passed via config.
-      // For now, we rely on standard google_sign_in setup.
-      final google.GoogleSignIn googleSignIn = google.GoogleSignIn();
+      final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
+      final google.GoogleSignIn googleSignIn = google.GoogleSignIn(
+        clientId: webClientId,
+      );
       final googleUser = await googleSignIn.signIn();
       
       if (googleUser == null) {

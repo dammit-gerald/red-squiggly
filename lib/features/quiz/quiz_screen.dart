@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:speech_to_text_ultra/speech_to_text_ultra.dart';
 import 'quiz_provider.dart';
 
 class QuizScreen extends ConsumerStatefulWidget {
@@ -181,11 +182,15 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: FloatingActionButton.large(
-                        heroTag: 'mic',
-                        onPressed: isListening ? notifier.stopListening : notifier.startListening,
-                        backgroundColor: isListening ? Colors.red : Theme.of(context).colorScheme.primaryContainer,
-                        child: Icon(isListening ? Icons.mic_off : Icons.mic),
+                      child: SpeechToTextUltra(
+                        ultraCallback: (String liveText, String finalText, bool isListening) {
+                           notifier.setListening(isListening);
+                           // Combine final and live text
+                           String text = "$finalText $liveText".trim();
+                           if (text.isNotEmpty) {
+                             notifier.updateSpelling(text);
+                           }
+                        },
                       ),
                     ),
                     const SizedBox(width: 20),
