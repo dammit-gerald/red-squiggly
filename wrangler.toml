@@ -1,0 +1,9 @@
+name = "red-squiggly"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "."
+
+# Bind your Cloudflare KV Namespace here (or in the Cloudflare Pages Dashboard under Settings -> Functions -> KV namespace bindings)
+# Binding name: PROGRESS_KV
+# [[kv_namespaces]]
+# binding = "PROGRESS_KV"
+# id = "YOUR_CLOUDFLARE_KV_NAMESPACE_ID"

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Red Squiggly — 6th Grade Spelling Bee</title>
+  <meta name="description" content="6th Grade Spelling Bee Trainer with human pronunciations, instant definitions, origins, and Cloudflare KV sync." />
+  <meta name="theme-color" content="#e63946" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand" id="brandHomeBtn" title="Return to Home">
+        <div class="brand-icon">🐝</div>
+        <div>
+          <span class="brand-title">
+            Red Squiggly
+            <svg class="squiggly-underline" viewBox="0 0 120 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 3.5C7 0.5 13 6.5 19 3.5C25 0.5 31 6.5 37 3.5C43 0.5 49 6.5 55 3.5C61 0.5 67 6.5 73 3.5C79 0.5 85 6.5 91 3.5C97 0.5 103 6.5 109 3.5C113 1.5 117 4.5 119 3.5" stroke="#e63946" stroke-width="2.4" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </div>
+        <span class="brand-badge">6th Grade Bee</span>
+      </div>
+
+      <nav class="nav-tabs" aria-label="Main Navigation">
+        <button class="nav-tab active" data-tab="home" id="navHomeBtn">
+          <span>🎯</span> Practice
+        </button>
+        <button class="nav-tab" data-tab="study" id="navStudyBtn">
+          <span>📖</span> Study List <span id="studyCountBadge">(50)</span>
+        </button>
+        <button class="nav-tab" data-tab="settings" id="navSettingsBtn">
+          <span>⚙️</span> Settings
+        </button>
+      </nav>
+
+      <button class="sync-pill" id="syncStatusBtn" title="Click to sync progress with Cloudflare KV">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncText">Connecting...</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="main-container" id="appRoot">
+    <div class="card" style="text-align: center; padding: 48px 20px;">
+      <p style="font-weight: 700; color: var(--text-muted);">Loading 6th Grade Spelling Bee word list...</p>
+    </div>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
