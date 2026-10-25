@@ -52,6 +52,11 @@ const state = {
     lastAudioSource: '', // 'Dictionary MP3' | 'Device TTS'
     sessionStreak: 0,
     isListening: false,
+    beeCadence: {
+      saidOpeningWord: false,
+      letterCount: 0,
+      saidClosingWord: false,
+    },
     practiceRetryText: '',
     practiceRetrySolved: false,
   },
@@ -725,72 +730,229 @@ function computeCharacterDiff(targetWord, userTyped) {
 }
 
 // ============================================================================
-// 7. Voice Spelling Recognition (Spoken Letters -> Spelling)
+// 7. Voice Spelling Recognition (Strict Spoken Letters + Official Bee Cadence)
 // ============================================================================
 
 const SPOKEN_LETTER_MAP = {
-  a: 'a', ay: 'a', hey: 'a',
-  b: 'b', be: 'b', bee: 'b',
-  c: 'c', see: 'c', sea: 'c', cee: 'c',
-  d: 'd', de: 'd', dee: 'd',
-  e: 'e', ee: 'e',
-  f: 'f', ef: 'f', eff: 'f',
-  g: 'g', gee: 'g', jee: 'g',
-  h: 'h', aitch: 'h', haitch: 'h',
-  i: 'i', eye: 'i', aye: 'i',
-  j: 'j', jay: 'j',
-  k: 'k', kay: 'k',
-  l: 'l', el: 'l', ell: 'l',
-  m: 'm', em: 'm',
-  n: 'n', en: 'n',
-  o: 'o', oh: 'o', owe: 'o',
-  p: 'p', pee: 'p', pea: 'p',
-  q: 'q', cue: 'q', queue: 'q', kyu: 'q',
-  r: 'r', are: 'r', ar: 'r',
-  s: 's', es: 's', ess: 's',
-  t: 't', tee: 't', tea: 't',
-  u: 'u', you: 'u', yew: 'u',
-  v: 'v', vee: 'v',
-  w: 'w', doubleu: 'w',
-  x: 'x', ex: 'x',
-  y: 'y', why: 'y', wye: 'y',
-  z: 'z', zee: 'z', zed: 'z',
+  a: 'a', ay: 'a', hey: 'a', eh: 'a', alpha: 'a',
+  b: 'b', be: 'b', bee: 'b', bea: 'b', bravo: 'b',
+  c: 'c', see: 'c', sea: 'c', cee: 'c', si: 'c', charlie: 'c',
+  d: 'd', de: 'd', dee: 'd', delta: 'd',
+  e: 'e', ee: 'e', ea: 'e', echo: 'e',
+  f: 'f', ef: 'f', eff: 'f', foxtrot: 'f',
+  g: 'g', gee: 'g', jee: 'g', ji: 'g', golf: 'g',
+  h: 'h', aitch: 'h', haitch: 'h', ach: 'h', hotel: 'h',
+  i: 'i', eye: 'i', aye: 'i', ai: 'i', india: 'i',
+  j: 'j', jay: 'j', jai: 'j', juliet: 'j',
+  k: 'k', kay: 'k', cay: 'k', kilo: 'k',
+  l: 'l', el: 'l', ell: 'l', lima: 'l',
+  m: 'm', em: 'm', mike: 'm',
+  n: 'n', en: 'n', november: 'n',
+  o: 'o', oh: 'o', owe: 'o', eau: 'o', oscar: 'o',
+  p: 'p', pee: 'p', pea: 'p', papa: 'p',
+  q: 'q', cue: 'q', queue: 'q', kyu: 'q', kew: 'q', quebec: 'q',
+  r: 'r', are: 'r', ar: 'r', romeo: 'r',
+  s: 's', es: 's', ess: 's', sierra: 's',
+  t: 't', tee: 't', tea: 't', ti: 't', tango: 't',
+  u: 'u', you: 'u', yew: 'u', yu: 'u', uniform: 'u',
+  v: 'v', vee: 'v', victor: 'v',
+  w: 'w', doubleu: 'w', doubleyou: 'w', whiskey: 'w',
+  x: 'x', ex: 'x', ecs: 'x', xray: 'x',
+  y: 'y', why: 'y', wye: 'y', yankee: 'y',
+  z: 'z', zee: 'z', zed: 'z', zulu: 'z',
 };
 
-function parseSpokenTranscriptToSpelling(rawTranscript) {
-  const cleaned = rawTranscript
+const VOICE_IGNORED_FILLERS = new Set([
+  'capital', 'uppercase', 'lowercase', 'letter',
+  'um', 'uh', 'uhm', 'er', 'ah', 'hmm',
+  'the', 'word', 'is', 'and', 'then',
+]);
+
+function isTokenTargetWord(token, wordObj) {
+  if (!token || token.length < 2 || !wordObj) return false;
+  const cleanToken = normalizeSpelling(token);
+  if (cleanToken === normalizeSpelling(wordObj.word)) return true;
+  if (wordObj.altSpelling) {
+    const alts = wordObj.altSpelling.split('|').map((s) => normalizeSpelling(s));
+    if (alts.includes(cleanToken)) return true;
+  }
+  return false;
+}
+
+function resolveSingleSpokenLetter(token, wordObj) {
+  if (!token) return null;
+  // Never treat the full target word as a single letter name
+  if (token.length > 1 && isTokenTargetWord(token, wordObj)) {
+    return null;
+  }
+  if (token in SPOKEN_LETTER_MAP) {
+    return SPOKEN_LETTER_MAP[token];
+  }
+  if (token.length === 1 && token >= 'a' && token <= 'z') {
+    return token;
+  }
+  return null;
+}
+
+/**
+ * Strictly extracts only spelled letters from a voice transcript while tracking
+ * standard Spelling Bee cadence: [1. Say Word] -> [2. Spell Letters] -> [3. Repeat Word].
+ * Full non-letter words (like "cat" in "cat. c-a-t. cat") are never added to the spelling
+ * so they cannot spoil the spelling or produce "catcatcat".
+ */
+function parseSpokenTranscriptToSpelling(rawTranscript, wordObj = null) {
+  const cleaned = (rawTranscript || '')
     .toLowerCase()
-    .replace(/double\s+([a-z]+)/g, '$1 $1')
+    .replace(/\bdouble\s+(?:u|you)\b/g, 'w')
+    .replace(/\bx[\s-]*ray\b/g, 'xray')
+    .replace(/\bstart\s+over\b/g, 'clear')
     .replace(/[^a-z\s]/g, ' ')
     .trim();
 
-  if (!cleaned) return '';
+  if (!cleaned) {
+    return {
+      spelling: '',
+      saidOpeningWord: false,
+      letterCount: 0,
+      saidClosingWord: false,
+      closingWordMatchesTarget: false,
+    };
+  }
 
   const tokens = cleaned.split(/\s+/);
-  // If the speaker said a single word (or the browser collapsed spelled letters into a single word)
-  if (tokens.length === 1 && tokens[0].length > 2 && !(tokens[0] in SPOKEN_LETTER_MAP)) {
-    return tokens[0];
-  }
+  const letters = [];
+  let saidOpeningWord = false;
+  let saidClosingWord = false;
+  let closingWordMatchesTarget = false;
 
-  let out = '';
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
-    if (t === 'capital' || t === 'letter') continue;
-    if (t === 'double' && tokens[i + 1]) {
-      const nextMapped = SPOKEN_LETTER_MAP[tokens[i + 1]] || tokens[i + 1][0] || '';
-      out += nextMapped + nextMapped;
-      i++;
+    if (!t || VOICE_IGNORED_FILLERS.has(t)) continue;
+
+    // Hands-free voice editing commands
+    if (t === 'backspace' || t === 'delete' || t === 'erase') {
+      letters.pop();
+      saidClosingWord = false;
+      closingWordMatchesTarget = false;
       continue;
     }
-    if (t in SPOKEN_LETTER_MAP) {
-      out += SPOKEN_LETTER_MAP[t];
-    } else if (t.length === 1) {
-      out += t;
-    } else {
-      out += t;
+
+    if (t === 'clear' || t === 'reset') {
+      letters.length = 0;
+      saidClosingWord = false;
+      closingWordMatchesTarget = false;
+      continue;
+    }
+
+    // "double <letter>" or "triple <letter>"
+    if ((t === 'double' || t === 'triple') && tokens[i + 1]) {
+      const nextLetter = resolveSingleSpokenLetter(tokens[i + 1], wordObj);
+      if (nextLetter) {
+        const repeatCount = t === 'triple' ? 3 : 2;
+        for (let r = 0; r < repeatCount; r++) letters.push(nextLetter);
+        saidClosingWord = false;
+        closingWordMatchesTarget = false;
+        i++;
+        continue;
+      }
+    }
+
+    const mappedLetter = resolveSingleSpokenLetter(t, wordObj);
+    if (mappedLetter) {
+      letters.push(mappedLetter);
+      saidClosingWord = false;
+      closingWordMatchesTarget = false;
+    } else if (t.length > 1) {
+      // Multi-letter non-letter word (e.g., repeating the target word at start or end)
+      if (letters.length === 0) {
+        saidOpeningWord = true;
+      } else if (letters.length >= 2) {
+        saidClosingWord = true;
+        closingWordMatchesTarget = isTokenTargetWord(t, wordObj);
+      }
     }
   }
-  return out;
+
+  return {
+    spelling: letters.join(''),
+    saidOpeningWord,
+    letterCount: letters.length,
+    saidClosingWord,
+    closingWordMatchesTarget,
+  };
+}
+
+function renderBeeCadenceBarHtml() {
+  const bc = state.quiz.beeCadence || {
+    saidOpeningWord: false,
+    letterCount: 0,
+    saidClosingWord: false,
+  };
+  const isListening = Boolean(state.quiz.isListening);
+
+  if (!isListening && !bc.saidOpeningWord && !bc.letterCount && !bc.saidClosingWord) {
+    return '';
+  }
+
+  const step1Class = bc.saidOpeningWord
+    ? 'done'
+    : isListening && bc.letterCount === 0
+      ? 'active'
+      : '';
+  const step2Class =
+    bc.letterCount > 0 && (bc.saidClosingWord || !isListening)
+      ? 'done'
+      : isListening && !bc.saidClosingWord && (bc.saidOpeningWord || bc.letterCount > 0)
+        ? 'active'
+        : '';
+  const step3Class = bc.saidClosingWord
+    ? 'done'
+    : isListening && bc.letterCount >= 2
+      ? 'active'
+      : '';
+
+  let subtext = '';
+  if (bc.saidClosingWord) {
+    subtext = '🐝 Bee cadence complete! Press Enter or tap Check Spelling.';
+  } else if (isListening && bc.saidOpeningWord && bc.letterCount === 0) {
+    subtext = '👍 Word heard (not shown so no spoilers)! Now spell each letter clearly.';
+  } else if (isListening && bc.letterCount > 0) {
+    subtext = '🔴 Listening for letters... Repeat the word when done (or say "backspace" / "clear").';
+  } else if (isListening) {
+    subtext = '🔴 Say the word (optional), spell the letters clearly, then repeat the word.';
+  } else {
+    subtext = `🎤 Captured ${bc.letterCount} spoken letter${bc.letterCount === 1 ? '' : 's'}. Tap 🎤 to re-record.`;
+  }
+
+  return `
+    <div class="bee-cadence-bar ${isListening ? 'listening' : ''}">
+      <div class="cadence-steps">
+        <span class="cadence-pill ${step1Class}">
+          ${bc.saidOpeningWord ? '✓' : '1.'} Say Word
+        </span>
+        <span class="cadence-arrow">→</span>
+        <span class="cadence-pill ${step2Class}">
+          ${bc.letterCount > 0 ? `✓ Spell Letters (${bc.letterCount})` : '2. Spell Letters'}
+        </span>
+        <span class="cadence-arrow">→</span>
+        <span class="cadence-pill ${step3Class}">
+          ${bc.saidClosingWord ? '✓' : '3.'} Repeat Word
+        </span>
+      </div>
+      <div class="cadence-subtext">${escapeHtml(subtext)}</div>
+    </div>
+  `;
+}
+
+function stopVoiceInput() {
+  if (recognitionInstance) {
+    try {
+      recognitionInstance.stop();
+    } catch (e) {
+      // ignore if already stopped
+    }
+  }
+  state.quiz.isListening = false;
 }
 
 function toggleVoiceInput() {
@@ -801,16 +963,25 @@ function toggleVoiceInput() {
   }
 
   if (state.quiz.isListening && recognitionInstance) {
-    recognitionInstance.stop();
-    state.quiz.isListening = false;
+    stopVoiceInput();
     render();
     return;
   }
 
+  const currentWordObj = state.quiz.words[state.quiz.currentIndex] || null;
+
+  // Start a clean voice session for this word
+  state.quiz.userSpelling = '';
+  state.quiz.beeCadence = {
+    saidOpeningWord: false,
+    letterCount: 0,
+    saidClosingWord: false,
+  };
+
   recognitionInstance = new SpeechRec();
   recognitionInstance.lang = 'en-US';
   recognitionInstance.interimResults = true;
-  recognitionInstance.continuous = false;
+  recognitionInstance.continuous = true;
 
   state.quiz.isListening = true;
   render();
@@ -820,13 +991,41 @@ function toggleVoiceInput() {
     for (let i = 0; i < event.results.length; i++) {
       transcript += event.results[i][0].transcript + ' ';
     }
-    const parsed = parseSpokenTranscriptToSpelling(transcript);
-    if (parsed) {
-      state.quiz.userSpelling = parsed;
-      const inputEl = document.getElementById('spellingInputBox');
-      if (inputEl) inputEl.value = parsed;
-      const submitBtn = document.getElementById('submitAnswerBtn');
-      if (submitBtn) submitBtn.disabled = !parsed.trim();
+
+    const parsed = parseSpokenTranscriptToSpelling(transcript, currentWordObj);
+    state.quiz.userSpelling = parsed.spelling;
+    state.quiz.beeCadence = {
+      saidOpeningWord: parsed.saidOpeningWord,
+      letterCount: parsed.letterCount,
+      saidClosingWord: parsed.saidClosingWord,
+    };
+
+    const inputEl = document.getElementById('spellingInputBox');
+    if (inputEl && inputEl.value !== parsed.spelling) {
+      inputEl.value = parsed.spelling;
+    }
+
+    const submitBtn = document.getElementById('submitAnswerBtn');
+    if (submitBtn) {
+      submitBtn.disabled = !parsed.spelling.trim();
+    }
+
+    const cadenceContainer = document.getElementById('voiceCadenceContainer');
+    if (cadenceContainer) {
+      cadenceContainer.innerHTML = renderBeeCadenceBarHtml();
+    }
+
+    // If the final speech result completed the closing word after spelling letters, stop listening cleanly
+    const lastResult = event.results[event.results.length - 1];
+    if (
+      lastResult?.isFinal &&
+      parsed.saidClosingWord &&
+      parsed.letterCount >= 2 &&
+      (parsed.closingWordMatchesTarget ||
+        (currentWordObj && parsed.letterCount >= Math.max(2, currentWordObj.word.length - 2)))
+    ) {
+      stopVoiceInput();
+      render();
     }
   };
 
@@ -848,6 +1047,8 @@ function toggleVoiceInput() {
 // ============================================================================
 
 function startNewQuiz(customWordList = null) {
+  stopVoiceInput();
+
   const words =
     customWordList ||
     selectQuizWords(
@@ -874,6 +1075,11 @@ function startNewQuiz(customWordList = null) {
     lastAudioSource: '',
     sessionStreak: 0,
     isListening: false,
+    beeCadence: {
+      saidOpeningWord: false,
+      letterCount: 0,
+      saidClosingWord: false,
+    },
     practiceRetryText: '',
     practiceRetrySolved: false,
   };
@@ -936,10 +1142,7 @@ function submitQuizAnswer() {
   const typed = state.quiz.userSpelling.trim();
   if (!typed) return;
 
-  if (recognitionInstance && state.quiz.isListening) {
-    recognitionInstance.stop();
-    state.quiz.isListening = false;
-  }
+  stopVoiceInput();
 
   const isCorrect = isSpellingMatch(wordObj, typed);
   state.quiz.results[wordObj.id] = { isCorrect, typed };
@@ -954,11 +1157,17 @@ function submitQuizAnswer() {
 }
 
 function advanceToNextWord() {
+  stopVoiceInput();
   if (state.quiz.currentIndex < state.quiz.words.length - 1) {
     state.quiz.currentIndex++;
     state.quiz.phase = 'answering';
     state.quiz.userSpelling = '';
     state.quiz.activeHint = null;
+    state.quiz.beeCadence = {
+      saidOpeningWord: false,
+      letterCount: 0,
+      saidClosingWord: false,
+    };
     state.quiz.practiceRetryText = '';
     state.quiz.practiceRetrySolved = false;
     render();
@@ -1397,8 +1606,10 @@ function renderQuizView(root) {
             </button>
           </div>
 
+          <div id="voiceCadenceContainer">${renderBeeCadenceBarHtml()}</div>
+
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-muted);">
-            <span>${state.quiz.isListening ? '🔴 Listening... Say the letters clearly' : 'Tip: Press Enter to submit, or tap 🎤 to spell aloud'}</span>
+            <span>${state.quiz.isListening ? '🔴 Mic Active — Full words are ignored so there are no spoilers' : 'Tip: Press Enter to submit, or tap 🎤 for Bee Voice Mode'}</span>
             <button type="button" id="toggleOnscreenKbBtn" style="background: none; border: none; color: var(--primary); font-weight: 700; cursor: pointer; font-family: inherit;">
               ${state.settings.showOnScreenKeyboard ? 'Hide Tile Keypad ▲' : 'Show Tile Keypad ⌨️'}
             </button>
@@ -1431,6 +1642,7 @@ function renderQuizView(root) {
 
   // Wire up events
   document.getElementById('quitQuizBtn')?.addEventListener('click', () => {
+    stopVoiceInput();
     state.activeTab = 'home';
     render();
   });

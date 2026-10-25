@@ -780,6 +780,71 @@ body {
   padding: 4px;
 }
 
+/* Voice Bee Cadence Bar */
+.bee-cadence-bar {
+  background: var(--surface-muted);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeIn 0.2s ease;
+}
+
+.bee-cadence-bar.listening {
+  background: #fff8f8;
+  border-color: #fca5a5;
+}
+
+.cadence-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cadence-pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.cadence-pill.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.cadence-pill.done {
+  border-color: #86efac;
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.cadence-arrow {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.cadence-subtext {
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .stats-grid {
